@@ -1,0 +1,15 @@
+Package: TiKmeans
+Type: Package
+Title: TiK-means: Transformation-infused K-means
+Version: 1.0
+Date: 2018-09-11
+Author: Nick Berry
+Maintainer: Nick Berry<berryni34@gmail.com>
+Description: Transformation-infused K-means algorithm implementation.
+License: GPL (>= 2)
+Imports: 
+    Rcpp,
+    foreach,
+    doParallel
+LinkingTo: Rcpp, RcppArmadillo
+RoxygenNote: 6.1.1

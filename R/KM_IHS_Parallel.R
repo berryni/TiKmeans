@@ -21,7 +21,7 @@
 #' }
 #' @importFrom graphics lines par plot
 #' @export 
-tikmeans_KSelect = function(dat, K_min = 1, K_max, exps = seq(0, 100, length.out = 1000), lambdaSeq = seq(0, 10, length.out = 51), nstart = 100, maxiter = 10000, lambdaType = 1, lambdaStepType = 1, verbose = FALSE, numCores = detectCores() %/% 2)
+tikmeans_KSelect = function(dat, K_min = 1, K_max, exps = seq(0, 100, length.out = 1000), lambdaSeq = seq(0, 10, length.out = 51), lambdaStart = NULL, nstart = 100, maxiter = 10000, lambdaType = 1, lambdaStepType = 1, verbose = FALSE, numCores = detectCores() %/% 2)
 {
   km_list <- vector("list", K_max - K_min + 1) 
   WSS_list = rep(NA, K_max - K_min + 1)
@@ -29,7 +29,7 @@ tikmeans_KSelect = function(dat, K_min = 1, K_max, exps = seq(0, 100, length.out
   logjac_list = rep(NA, K_max - K_min + 1)
   for(i in K_min:K_max)
   {
-    km_list[[i - K_min + 1]] = tikmeans(dat, i, nstart = nstart, lambdaSeq = lambdaSeq, lambdaType = lambdaType, lambdaStepType = lambdaStepType, verbose = verbose, numCores = numCores)
+    km_list[[i - K_min + 1]] = tikmeans(dat, i, nstart = nstart, lambda = lambdaStart, lambdaSeq = lambdaSeq, lambdaType = lambdaType, lambdaStepType = lambdaStepType, verbose = verbose, numCores = numCores)
     if(lambdaType == 1)
       print(km_list[[i - K_min + 1]]$lambda[1,])
     else
@@ -63,7 +63,11 @@ tikmeans_KSelect = function(dat, K_min = 1, K_max, exps = seq(0, 100, length.out
   par(mfrow = c(1,1), mar = c(4,5,3,5))
   
   
-  if(max(kselVect) != K_max) warning("Max value of K never reached. Expand exps. If computation was long use existing km_list returned and calculate value on own with new exps.")
+  if(max(kselVect) != K_max)
+  {
+    warning("Max value of K never reached. Expand exps. If computation was long use existing km_list returned and calculate value on own with new exps.")
+    return(list("K_tikMeans" = NA, "resMat" = NULL, "km_list" = km_list))
+  }
   
   topVal = min(which(kselVect == max(kselVect)))
   bottomVal = which(kselVect == min(kselVect))

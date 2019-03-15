@@ -40,28 +40,16 @@ tikmeans_KSelect = function(dat, K_min = 1, K_max, exps = seq(0, 100, length.out
   }
   distortion = WSS_list/prod(dim(dat))
   objtion = -1*obj_list/prod(dim(dat))
-  #print(objtion)
-  #if(is.na(distTransExp)) distTransExp = dim(dat)[2]/2
-  #jumpTest = (objtion)^(-distTransExp)
+
   resMat = matrix(NA, ncol = K_max - K_min + 1, nrow = length(exps))
-  #objtion = objtion-5*min(objtion)
   for(i in 1:length(exps))
   {
     jumpTest = (objtion)^(-exps[i])
     resMat[i,] = c(jumpTest[1], jumpTest[-1] - jumpTest[-length(jumpTest)])
   }
   
-  par(mfrow = c(1,2), mar = c(4,5,3,5))
-  jumpSingle = (objtion)^(-4)
-  resSingle = c(jumpSingle[1], jumpSingle[-1] - jumpSingle[-length(jumpSingle)])
-  plot(K_min:K_max, resSingle, main = "Transformed Objective Fn. Distortions", ylab = "Transformed Objective Fn.", xlab = "Clusters")
-  lines(K_min:K_max, resSingle)
-  
-  
   kselVect = (K_min:K_max)[apply(resMat, 1, which.max)]
   plot(exps, kselVect, main = "Jump Statistic By Exponent", xlab = "-1*Exponent", ylab = "K")
-  par(mfrow = c(1,1), mar = c(4,5,3,5))
-  
   
   if(max(kselVect) != K_max)
   {
@@ -89,8 +77,52 @@ tikmeans_KSelect = function(dat, K_min = 1, K_max, exps = seq(0, 100, length.out
   return(list("K_tikMeans" = K_tikMeans, "resMat" = resMat, "km_list" = km_list))
 }
 
+#' @name IHS_BackTransform
+#' @aliases IHS_BackTransform
+#' @title Back transform dataset with IHS
+#' @description Converts a dataset to its transformed counterpart using parameters returned from tikmeans.
+#' @param dat Dataset to be back transformed. Must be numeric.
+#' @param lambda Transformation parameters.
+#' @param lambdaType Dimensions of lambda matrix. 1 means p-dimensional lambda vector. 2 means (kxp)-dimensional lambda matrix. 1 is default.
+#' @return Matrix containing observations on the transformed scale.
+#' \itemize{
+#' \item objectiveScore Value of objective function.
+#' \item transWSS WSS on transformed scale
+#' \item cluster Cluster assignmets
+#' \item centers Cluster centers. On pre-transformation scale.
+#' \item lambda Estimated lambda values for IHS transformation.
+#' \item iter Number of iterations made by TiK-means
+#' \item size Cluster sizes
+#' \item lambdaType lambdaType specified in function call
+#' \item stepType lambdaStepType specified in function call
+#' }
+#' @export
+IHS_BackTransform = function(dat, lambda, lambdaType = 1, cluster = 1)
+{
+  dat = as.matrix(dat)
+  if(lambdaType == 1)
+  {
+    for(i in 1:dim(dat)[2])
+    {
+      dat[,i] = IHS(dat[,i], lambda[1,i])
+    }
+  }
+  else if(lambdaType == 2)
+  {
+    for(i in 1:dim(dat)[2])
+    {
+      for(j in 1:dim(dat)[1])
+      {
+        dat[j,i] = IHS(dat[j,i], lambda[cluster[j],i])
+      }
+    }
+  }
+  return(dat)
+  
+}
+
 # Internal function for determining initial values for lambda. For lambdaType 1, completely random. For lambdaType 2, random across dimensions, but the same for each cluster.
-lambdaStart = function(lambdaSeq, lambdaType, p, K)
+lambdaStarting = function(lambdaSeq, lambdaType, p, K)
 {
   retVal = matrix(NA, K, p)
   if(lambdaType == 1)
@@ -157,7 +189,7 @@ tikmeans = function(dat, K, centers = NULL, lambdaType = 1, lambdaSeq = seq(0,10
   lambdaSeq = sort(unique(lambdaSeq))
   
   dat = as.matrix(dat)
-
+  
  # require(doParallel)
   registerDoParallel(numCores)
   cat("Using", numCores, "nodes.\n")
@@ -165,23 +197,23 @@ tikmeans = function(dat, K, centers = NULL, lambdaType = 1, lambdaSeq = seq(0,10
   if(!is.null(centers) & !is.null(lambda))
   {
     nstart = 1
-    res = KM_Transformed_Internal(dat, K, centers, lambdaType, lambdaSeq, lambdaStepType, lambda, maxiter)
+    res = KM_Transformed_Internal(dat, K, centers, lambdaType, lambdaSeq, lambdaStepType, matrix(lambda[c(1:K),], nrow = K), maxiter)
     return(res)
   }
   else if(!is.null(centers))
   {
     res = vector("list", nstart)
-    res = foreach(i = 1:nstart) %dopar% KM_Transformed_Internal(dat, K, centers, lambdaType, lambdaSeq, lambdaStepType, lambdaStart(lambdaSeq, lambdaType, dim(dat)[2], K), maxiter)
+    res = foreach(i = 1:nstart) %dopar% KM_Transformed_Internal(dat, K, centers, lambdaType, lambdaSeq, lambdaStepType, lambdaStarting(lambdaSeq, lambdaType, dim(dat)[2], K), maxiter)
   }
   else if(!is.null(lambda))
   {
     res = vector("list", nstart)
-    res = foreach(i = 1:nstart) %dopar% KM_Transformed_Internal(dat, K, matrix(dat[sample.int(dim(dat)[1],size = K),], byrow = F, ncol = dim(dat)[2]), lambdaType, lambdaSeq, lambdaStepType, lambda, maxiter)
+    res = foreach(i = 1:nstart) %dopar% KM_Transformed_Internal(dat, K, matrix(dat[sample.int(dim(dat)[1],size = K),], byrow = F, ncol = dim(dat)[2]), lambdaType, lambdaSeq, lambdaStepType, matrix(lambda[c(1:K),], nrow = K), maxiter)
   }
   else
   {
     res = vector("list", nstart)
-    res = foreach(i = 1:nstart) %dopar% KM_Transformed_Internal(dat, K, matrix(dat[sample.int(dim(dat)[1],size = K),], byrow = F, ncol = dim(dat)[2]), lambdaType, lambdaSeq, lambdaStepType, lambdaStart(lambdaSeq, lambdaType, dim(dat)[2], K), maxiter)
+    res = foreach(i = 1:nstart) %dopar% KM_Transformed_Internal(dat, K, matrix(dat[sample.int(dim(dat)[1],size = K),], byrow = F, ncol = dim(dat)[2]), lambdaType, lambdaSeq, lambdaStepType, lambdaStarting(lambdaSeq, lambdaType, dim(dat)[2], K), maxiter)
   }
   
   if(verbose)
@@ -195,6 +227,7 @@ tikmeans = function(dat, K, centers = NULL, lambdaType = 1, lambdaSeq = seq(0,10
     print(summary(sapply(res, "[[", 6)))
     cat("\tProportion of random starts that hit iteration limit:\n", mean(unlist(sapply(res, "[[", 6)) >= maxiter))
     cat("\n\n")
+    print(hist(sapply(res, "[[", 1), main = "Objective Functions"))
   }
   return(res[[which.max(sapply(res, "[[", 1))]])
 }

@@ -5,9 +5,10 @@
 \title{TiK-means: Transformation-infused K-means K selection algorithm}
 \usage{
 tikmeans_KSelect(dat, K_min = 1, K_max, exps = seq(0, 100, length.out =
-  1000), lambdaSeq = seq(0, 10, length.out = 51), nstart = 100,
-  maxiter = 10000, lambdaType = 1, lambdaStepType = 1,
-  verbose = FALSE, numCores = detectCores()\%/\%2)
+  1000), lambdaSeq = seq(0, 10, length.out = 51), lambdaStart = NULL,
+  nstart = 100, maxiter = 10000, lambdaType = 1,
+  lambdaStepType = 1, verbose = FALSE,
+  numCores = detectCores()\%/\%2)
 }
 \arguments{
 \item{dat}{Dataset to cluster}
